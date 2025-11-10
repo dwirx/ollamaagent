@@ -165,7 +165,15 @@ def _prompt_for_judge(
     return _stream_completion(client=client, model=judge_model, messages=messages, on_chunk=on_chunk)
 
 
-def run_debate(config: DebateConfig, personalities: List[Personality], save_callback=None) -> DebateState:
+def _aggregate_ranks(votes: List[Vote]) -> Dict[str, int]:
+    scores: Dict[str, int] = {}
+    for v in votes:
+        for idx, name in enumerate(v.ranking):
+            scores[name] = scores.get(name, 0) + (idx + 1)  # rank 1 -> 1 point
+    return scores
+
+
+def run_debate(config: DebateConfig, personalities: List[Personality], save_callback=None, elimination: bool = False) -> DebateState:
     state = DebateState(config=config, personalities=personalities)
     client = get_ollama_client()
 
@@ -216,6 +224,14 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
         # Save after each iteration (checkpoint)
         if save_callback:
             save_callback(state)
+
+        # Elimination step: drop worst performer by aggregate rank
+        if elimination and len(personalities) > 2:
+            ranks = _aggregate_ranks(votes)
+            # Highest score = worst
+            worst = max(ranks.items(), key=lambda kv: kv[1])[0]
+            console.print(f"[red]Eliminasi:[/red] {worst}")
+            personalities = [p for p in personalities if p.name != worst]
 
         # Respect min_iterations before early stop
         if consensus and i + 1 >= config.min_iterations:
