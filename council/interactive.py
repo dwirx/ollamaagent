@@ -12,6 +12,7 @@ from rich.prompt import Prompt, Confirm, IntPrompt
 from .types import DebateConfig, Personality, DebateState
 from .personalities import default_personalities
 from .engine import run_debate
+from .consciousness import run_council_of_consciousness, CouncilConfig
 
 console = Console()
 
@@ -79,6 +80,14 @@ def run_interactive() -> None:
 
     question = Prompt.ask("Pertanyaan/Topik")
     title = Prompt.ask("Judul (opsional)", default="").strip() or None
+    mode = Prompt.ask("Mode (debate/council)", choices=["debate", "council"], default="council")
+
+    if mode == "council":
+        eliminate = Confirm.ask("Aktifkan eliminasi agent dalam refleksi?", default=False)
+        config = CouncilConfig(question=question, title=title, elimination=eliminate)
+        run_council_of_consciousness(config)
+        return
+
     min_it = IntPrompt.ask("Minimal iterasi sebelum cek konsensus", default=2)
     max_it = IntPrompt.ask("Maksimal iterasi", default=5)
     consensus = _choose_consensus()

@@ -10,6 +10,7 @@ from .personalities import default_personalities
 from .engine import run_debate
 from .storage import autosave_json
 from .interactive import run_interactive
+from .consciousness import run_council_of_consciousness, CouncilConfig
 
 app = typer.Typer(add_completion=False)
 console = Console()
@@ -65,10 +66,6 @@ def debate(
     run_debate(config=config, personalities=personas, save_callback=autosave_json, elimination=elimination)
 
 
-def main():
-    app()
-
-
 @app.command("interactive")
 def interactive():
     """
@@ -76,6 +73,27 @@ def interactive():
     dan log proses dalam Markdown secara realtime.
     """
     run_interactive()
+
+
+@app.command("consciousness")
+def consciousness(
+    question: Optional[str] = typer.Option(None, "--question", help="Pertanyaan/topik"),
+    title: Optional[str] = typer.Option(None, "--title", help="Judul debat (opsional)"),
+    elimination: bool = typer.Option(False, "--eliminate/--no-eliminate", help="Eliminasi refleksi"),
+):
+    """
+    Jalankan Council of Consciousness: moderator, filosof, humanis, kritikus, spiritualis, teknokrat.
+    Berjalan dengan memori episodik & log Markdown otomatis.
+    """
+    load_dotenv(override=False)
+    if not question:
+        question = typer.prompt("Pertanyaan/Topik")
+    config = CouncilConfig(question=question, title=title, elimination=elimination)
+    run_council_of_consciousness(config)
+
+
+def main():
+    app()
 
 
 if __name__ == "__main__":
