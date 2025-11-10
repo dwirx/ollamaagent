@@ -11,6 +11,9 @@ from .engine import run_debate
 from .storage import autosave_json
 from .interactive import run_interactive
 from .consciousness import run_council_of_consciousness, CouncilConfig
+from .rag_system import RAGSystem, RAGConfig
+from .enhanced_memory import EnhancedCouncilMemory
+from .clients import get_ollama_client
 
 app = typer.Typer(add_completion=False)
 console = Console()
@@ -31,10 +34,25 @@ def debate(
     elimination: bool = typer.Option(
         False, "--eliminate/--no-eliminate", help="Aktifkan eliminasi agen per iterasi (opsional)"
     ),
+    rag: bool = typer.Option(
+        False, "--rag/--no-rag", help="Aktifkan RAG (Retrieval Augmented Generation)"
+    ),
+    rag_use_memory: bool = typer.Option(
+        True, "--rag-memory/--no-rag-memory", help="Gunakan debate memory (ChromaDB) untuk RAG"
+    ),
+    rag_use_docs: bool = typer.Option(
+        False, "--rag-docs/--no-rag-docs", help="Gunakan external documents untuk RAG"
+    ),
 ):
     """
     Jalankan council debate dengan beberapa kepribadian model Ollama.
     Hasil akan otomatis disimpan di folder 'debates/' setiap iterasi.
+
+    RAG (Retrieval Augmented Generation):
+    - Enhance agent arguments dengan context dari past debates dan documents
+    - Gunakan --rag untuk mengaktifkan
+    - Gunakan --rag-memory untuk menggunakan ChromaDB memory
+    - Gunakan --rag-docs untuk menggunakan external documents dari folder 'docs/'
     """
     load_dotenv(override=False)
     # Ensure Langfuse env present; if missing, user gets clearer error from main example
@@ -63,7 +81,39 @@ def debate(
         consensus_threshold=threshold,
     )
     personas = default_personalities()
-    run_debate(config=config, personalities=personas, save_callback=autosave_json, elimination=elimination)
+
+    # Initialize RAG system if enabled
+    rag_system = None
+    if rag:
+        from pathlib import Path
+
+        client = get_ollama_client()
+        memory = EnhancedCouncilMemory() if rag_use_memory else None
+
+        rag_config = RAGConfig(
+            enabled=True,
+            use_memory=rag_use_memory,
+            use_external_docs=rag_use_docs,
+            external_docs_path=Path("docs") if rag_use_docs else None,
+            retrieval_limit=3,
+            min_similarity=0.6,
+        )
+
+        rag_system = RAGSystem(rag_config, memory, client)
+
+        # Load external docs if enabled
+        if rag_use_docs:
+            docs_path = Path("docs")
+            if docs_path.exists():
+                rag_system.load_external_documents(docs_path)
+            else:
+                console.print("[yellow]Warning: docs/ folder tidak ditemukan untuk RAG documents[/yellow]")
+
+        console.print("[cyan]🧠 RAG System Enabled[/cyan]")
+        stats = rag_system.get_rag_stats()
+        console.print(f"[dim]  - Memory: {stats['memory_enabled']}, External Docs: {stats['external_docs_count']}[/dim]")
+
+    run_debate(config=config, personalities=personas, save_callback=autosave_json, elimination=elimination, rag_system=rag_system)
 
 
 @app.command("interactive")
@@ -90,6 +140,28 @@ def consciousness(
         question = typer.prompt("Pertanyaan/Topik")
     config = CouncilConfig(question=question, title=title, elimination=elimination)
     run_council_of_consciousness(config)
+
+
+@app.command("web")
+def web_dashboard(
+    host: str = typer.Option("0.0.0.0", "--host", help="Host address"),
+    port: int = typer.Option(8000, "--port", help="Port number"),
+):
+    """
+    Launch web dashboard for interactive debate management.
+    Access at http://localhost:8000
+    """
+    console.print("[bold cyan]🚀 Starting Council Debate Web Dashboard...[/bold cyan]")
+    console.print(f"[green]📡 Server will be available at http://{host}:{port}[/green]")
+    console.print("[yellow]Press Ctrl+C to stop the server[/yellow]\n")
+
+    try:
+        from web.server import run_server
+        run_server(host=host, port=port)
+    except ImportError as e:
+        console.print(f"[red]Error: Web dependencies not installed. Run: uv sync[/red]")
+        console.print(f"[red]Details: {e}[/red]")
+        raise typer.Exit(code=1)
 
 
 def main():

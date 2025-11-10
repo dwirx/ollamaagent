@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Council Debate Dashboard v2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e27;
+            --bg-secondary: #1a1f3a;
+            --bg-tertiary: #2a2f4a;
+            --accent-primary: #00d4ff;
+            --accent-secondary: #7b2cbf;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            --text-primary: #ffffff;
+            --text-secondary: #b8c1ec;
+            --text-muted: #6e7491;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(103, 126, 234, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            animation: pulse 15s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(26, 31, 58, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(50%); }
+        }
+
+        h1 {
+            font-size: 3em;
+            font-weight: 900;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2em;
+            font-weight: 300;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: rgba(26, 31, 58, 0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            gap: 15px;
+        }
+
+        .status-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .status-label {
+            color: var(--text-muted);
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            color: var(--accent-primary);
+            font-size: 1.5em;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding: 5px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: rgba(26, 31, 58, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1em;
+            color: var(--text-secondary);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tab:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .tab.active {
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: var(--shadow-glow);
+            font-weight: 600;
+        }
+
+        .tab.active::before {
+            opacity: 0.1;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Forms */
+        .debate-form {
+            background: rgba(26, 31, 58, 0.6);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 15px;
+            background: rgba(42, 47, 74, 0.8);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 1em;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            background: rgba(42, 47, 74, 1);
+            box-shadow: 0 0 0 4px rgba(0, 212, 255, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Agent Selector */
+        .agent-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .agent-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(42, 47, 74, 0.6);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-checkbox::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .agent-checkbox:hover::before {
+            left: 100%;
+        }
+
+        .agent-checkbox:hover {
+            border-color: var(--accent-primary);
+            background: rgba(42, 47, 74, 0.9);
+            transform: translateX(5px);
+        }
+
+        .agent-checkbox input:checked + span {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .agent-checkbox input {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--accent-primary);
+        }
+
+        /* Button */
+        .btn {
+            padding: 18px 45px;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.5px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 32px rgba(103, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        .btn:disabled {
+            background: rgba(110, 116, 145, 0.5);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Terminal Display */
+        .terminal-container {
+            background: #0d1117;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .terminal-header {
+            background: #161b22;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .terminal-body {
+            padding: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            color: #c9d1d9;
+        }
+
+        .terminal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal-body::-webkit-scrollbar-track {
+            background: #161b22;
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        .terminal-line {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 3px solid transparent;
+            border-radius: 4px;
+            transition: all 0.3s;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .terminal-line:hover {
+            background: rgba(0, 212, 255, 0.05);
+            border-left-color: var(--accent-primary);
+        }
+
+        .agent-label {
+            color: var(--accent-primary);
+            font-weight: 700;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .agent-badge {
+            padding: 2px 8px;
+            background: rgba(0, 212, 255, 0.2);
+            border-radius: 4px;
+            font-size: 0.75em;
+        }
+
+        .timestamp {
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            position: relative;
+        }
+
+        .loader::before,
+        .loader::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        .loader::before {
+            width: 100%;
+            height: 100%;
+            border: 3px solid var(--accent-primary);
+        }
+
+        .loader::after {
+            width: 70%;
+            height: 70%;
+            top: 15%;
+            left: 15%;
+            border: 3px solid var(--accent-secondary);
+            animation-delay: 0.3s;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.8);
+                opacity: 1;
+            }
+            80%, 100% {
+                transform: scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .loading-text {
+            font-size: 1.3em;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .loading-subtext {
+            color: var(--text-muted);
+            font-size: 0.95em;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 300px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+            animation: shimmer-progress 2s infinite;
+        }
+
+        @keyframes shimmer-progress {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-badge.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .status-badge.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        .status-badge.active {
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+            }
+        }
+
+        /* History Card */
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .history-card {
+            background: rgba(26, 31, 58, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .history-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.05), transparent);
+            transition: left 0.5s;
+        }
+
+        .history-card:hover::before {
+            left: 100%;
+        }
+
+        .history-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .history-card h3 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .history-card p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .history-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(26, 31, 58, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--accent-primary);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            box-shadow: var(--shadow-lg);
+            transform: translateX(500px);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toast-icon {
+            font-size: 2em;
+        }
+
+        .toast-message {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .toast-text {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .status-bar {
+                flex-direction: column;
+            }
+
+            .agent-selector {
+                grid-template-columns: 1fr;
+            }
+
+            .history-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loader"></div>
+            <div class="loading-text" id="loadingText">Initializing Debate System...</div>
+            <div class="loading-subtext" id="loadingSubtext">Please wait</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <div class="toast-icon">✨</div>
+            <div class="toast-message">
+                <div class="toast-title" id="toastTitle">Success</div>
+                <div class="toast-text" id="toastText">Operation completed successfully</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🏛️ Council Debate Dashboard</h1>
+            <p class="subtitle">Advanced Multi-Agent Debate System • Real-time Analytics • v2.0</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">Connection</div>
+                <div class="status-value" id="connectionStatus">●</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Total Debates</div>
+                <div class="status-value" id="totalDebates">0</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Active Agents</div>
+                <div class="status-value" id="activeAgents">0</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Avg. Consensus</div>
+                <div class="status-value" id="avgConsensus">0%</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('start')">🚀 Start Debate</button>
+            <button class="tab" onclick="switchTab('live')">📡 Live Stream</button>
+            <button class="tab" onclick="switchTab('history')">📚 History</button>
+            <button class="tab" onclick="switchTab('analytics')">📊 Analytics</button>
+            <button class="tab" onclick="switchTab('agents')">🤖 Agents</button>
+        </div>
+
+        <!-- Start Debate Tab -->
+        <div id="start-tab" class="tab-content active">
+            <div class="debate-form">
+                <h2 style="margin-bottom: 30px;">Configure New Debate</h2>
+                <form id="debateForm">
+                    <div class="form-group">
+                        <label for="question">💬 Debate Question *</label>
+                        <textarea id="question" required placeholder="What should we debate about today?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="title">📝 Debate Title (optional)</label>
+                        <input type="text" id="title" placeholder="Give this debate a memorable title">
+                    </div>
+
+                    <div class="form-group">
+                        <label>🤖 Select Agents</label>
+                        <div id="agentSelector" class="agent-selector">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="debateMode">🎭 Debate Mode</label>
+                        <select id="debateMode" onchange="updateModeOptions()">
+                            <option value="debate">Competitive Debate (Default)</option>
+                            <option value="council">Council of Consciousness</option>
+                            <option value="collaboration">Collaborative Mode</option>
+                            <option value="oxford">Oxford-Style Debate</option>
+                            <option value="socratic">Socratic Dialogue</option>
+                            <option value="devils_advocate">Devil's Advocate</option>
+                            <option value="parliamentary">Parliamentary Debate</option>
+                        </select>
+                        <small style="color: var(--text-muted); display: block; margin-top: 8px;">
+                            Different debate formats and collaboration styles
+                        </small>
+                    </div>
+
+                    <div class="form-group" id="eliminationGroup" style="display: none;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="elimination" style="width: 20px; height: 20px; cursor: pointer;">
+                            <span>🔻 Enable Agent Elimination</span>
+                        </label>
+                        <small style="color: var(--text-muted); display: block; margin-top: 8px; margin-left: 30px;">
+                            Weakest performing agents will be eliminated each iteration
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="ragEnabled" onchange="toggleRAGConfig()" style="width: 20px; height: 20px; cursor: pointer;">
+                            <span>🧠 Enable RAG (Retrieval Augmented Generation)</span>
+                        </label>
+                        <small style="color: var(--text-muted); display: block; margin-top: 8px; margin-left: 30px;">
+                            Enhance arguments with context from past debates and documents
+                        </small>
+                    </div>
+
+                    <div id="ragConfig" style="display: none; background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 12px; padding: 20px; margin-top: -10px; margin-bottom: 25px;">
+                        <h4 style="margin-bottom: 15px; color: var(--accent-primary);">RAG Configuration</h4>
+
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="ragUseMemory" checked style="width: 18px; height: 18px;">
+                                <span>Use Debate Memory (ChromaDB)</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="ragUseExternal" style="width: 18px; height: 18px;">
+                                <span>Use External Documents</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="ragRetrievalLimit">Retrieval Limit</label>
+                            <input type="number" id="ragRetrievalLimit" value="3" min="1" max="10" style="width: 100px;">
+                            <small style="color: var(--text-muted); display: block; margin-top: 5px;">
+                                Number of relevant memories to retrieve
+                            </small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ragMinSimilarity">Minimum Similarity</label>
+                            <input type="number" id="ragMinSimilarity" value="0.6" min="0" max="1" step="0.1" style="width: 100px;">
+                            <small style="color: var(--text-muted); display: block; margin-top: 5px;">
+                                Threshold for relevance (0.0 - 1.0)
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="judgeModel">⚖️ Judge Model</label>
+                        <select id="judgeModel">
+                            <option value="kimi-k2:1t-cloud" selected>kimi-k2:1t-cloud (Recommended)</option>
+                            <option value="qwen2.5:3b">qwen2.5:3b</option>
+                            <option value="gemma3:1b">gemma3:1b</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxIterations">🔄 Max Iterations</label>
+                        <input type="number" id="maxIterations" value="5" min="2" max="10">
+                    </div>
+
+                    <button type="submit" class="btn">
+                        <span style="position: relative; z-index: 1;">Launch Debate 🚀</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Live Stream Tab -->
+        <div id="live-tab" class="tab-content">
+            <div style="margin-bottom: 20px;">
+                <span class="status-badge" id="debateStatusBadge">⏸️ Idle</span>
+                <h3 style="margin-top: 15px; color: var(--text-secondary);" id="currentQuestion">No active debate</h3>
+            </div>
+
+            <div class="terminal-container">
+                <div class="terminal-header">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <div class="terminal-title">debate-stream-v2.0</div>
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <div style="color: var(--text-muted); text-align: center; padding: 40px;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">💤</div>
+                        <div>Waiting for debate to start...</div>
+                        <div style="font-size: 0.9em; margin-top: 10px;">Click "Start Debate" to begin</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">Debate History</h2>
+            <div class="history-grid" id="historyGrid">
+                <div class="loader"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">Analytics Dashboard</h2>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-label">Total Debates</div>
+                    <div class="status-value" id="analyticsTotal">0</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Consensus Rate</div>
+                    <div class="status-value" id="analyticsConsensus">0%</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Avg Iterations</div>
+                    <div class="status-value" id="analyticsIterations">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents Tab -->
+        <div id="agents-tab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">Available Agents</h2>
+            <div class="history-grid" id="agentsGrid">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentDebateId = null;
+
+        // Show toast notification
+        function showToast(title, text, icon = '✨') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastText').textContent = text;
+            toast.querySelector('.toast-icon').textContent = icon;
+
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
+        // Show/hide loading overlay
+        function showLoading(text = 'Processing...', subtext = 'Please wait') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingSubtext').textContent = subtext;
+            document.getElementById('loadingOverlay').classList.add('active');
+
+            // Animate progress bar
+            let progress = 0;
+            const progressBar = document.getElementById('progressBar');
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 95) progress = 95;
+                progressBar.style.width = progress + '%';
+            }, 200);
+
+            return () => {
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                setTimeout(() => {
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    progressBar.style.width = '0%';
+                }, 300);
+            };
+        }
+
+        // Switch tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            if (tabName === 'history') loadHistory();
+            if (tabName === 'analytics') loadAnalytics();
+            if (tabName === 'agents') loadAgents();
+        }
+
+        // Initialize WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/debate`);
+
+            ws.onopen = () => {
+                document.getElementById('connectionStatus').textContent = '✓';
+                document.getElementById('connectionStatus').style.color = 'var(--success)';
+                showToast('Connected', 'WebSocket connection established', '✅');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connectionStatus').textContent = '✗';
+                document.getElementById('connectionStatus').style.color = 'var(--error)';
+                setTimeout(connectWebSocket, 5000); // Reconnect
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showToast('Connection Error', 'Failed to connect to server', '⚠️');
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            const terminal = document.getElementById('terminalBody');
+
+            if (data.type === 'debate_started') {
+                document.getElementById('debateStatusBadge').className = 'status-badge active';
+                document.getElementById('debateStatusBadge').textContent = '▶️ Running';
+                document.getElementById('currentQuestion').textContent = data.question;
+
+                terminal.innerHTML = '';
+                addTerminalLine('system', 'Debate Started', data.timestamp);
+
+                switchTab('live');
+                document.querySelectorAll('.tab')[1].click();
+            }
+
+            if (data.type === 'argument') {
+                addTerminalLine(data.agent, data.content, data.timestamp);
+            }
+
+            if (data.type === 'debate_complete') {
+                document.getElementById('debateStatusBadge').className = 'status-badge success';
+                document.getElementById('debateStatusBadge').textContent = '✅ Completed';
+                addTerminalLine('system', 'Debate Completed Successfully', data.timestamp);
+                showToast('Debate Complete', 'All agents have finished deliberation', '🎉');
+            }
+        }
+
+        // Add line to terminal
+        function addTerminalLine(agent, content, timestamp) {
+            const terminal = document.getElementById('terminalBody');
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+
+            const time = new Date(timestamp).toLocaleTimeString();
+
+            line.innerHTML = `
+                <div class="agent-label">
+                    <span class="agent-badge">${agent.toUpperCase()}</span>
+                    <span class="timestamp">${time}</span>
+                </div>
+                <div style="color: #c9d1d9; margin-top: 8px;">${content}</div>
+            `;
+
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Load personalities
+        async function loadPersonalities() {
+            try {
+                const response = await fetch('/api/personalities');
+                const data = await response.json();
+
+                const container = document.getElementById('agentSelector');
+                container.innerHTML = data.personalities.map(p => `
+                    <label class="agent-checkbox">
+                        <input type="checkbox" name="agent" value="${p.name}">
+                        <span>${p.name}</span>
+                    </label>
+                `).join('');
+
+                document.getElementById('activeAgents').textContent = data.personalities.length;
+            } catch (error) {
+                showToast('Error', 'Failed to load agents', '❌');
+            }
+        }
+
+        // Load history
+        async function loadHistory() {
+            const grid = document.getElementById('historyGrid');
+            grid.innerHTML = '<div class="loader"></div>';
+
+            try {
+                const response = await fetch('/api/debates/history');
+                const debates = await response.json();
+
+                document.getElementById('totalDebates').textContent = debates.length;
+
+                if (debates.length === 0) {
+                    grid.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No debates yet</div>';
+                    return;
+                }
+
+                grid.innerHTML = debates.map(d => `
+                    <div class="history-card" onclick="viewDebate('${d.id}')">
+                        <h3>${d.title || 'Untitled Debate'}</h3>
+                        <p>${d.question}</p>
+                        <div class="history-meta">
+                            <span>${d.timestamp} • ${d.iterations} iterations</span>
+                            <span class="status-badge ${d.consensus_reached ? 'success' : 'warning'}">
+                                ${d.consensus_reached ? '✓ Consensus' : '⚠ No Consensus'}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                grid.innerHTML = '<div style="text-align: center; color: var(--error);">Failed to load history</div>';
+            }
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/debates/history');
+                const debates = await response.json();
+
+                const total = debates.length;
+                const consensusCount = debates.filter(d => d.consensus_reached).length;
+                const consensusRate = total > 0 ? Math.round((consensusCount / total) * 100) : 0;
+                const avgIterations = total > 0 ? Math.round(debates.reduce((sum, d) => sum + d.iterations, 0) / total) : 0;
+
+                document.getElementById('analyticsTotal').textContent = total;
+                document.getElementById('analyticsConsensus').textContent = consensusRate + '%';
+                document.getElementById('analyticsIterations').textContent = avgIterations;
+                document.getElementById('avgConsensus').textContent = consensusRate + '%';
+            } catch (error) {
+                showToast('Error', 'Failed to load analytics', '❌');
+            }
+        }
+
+        // Load agents
+        async function loadAgents() {
+            const grid = document.getElementById('agentsGrid');
+
+            try {
+                const response = await fetch('/api/personalities');
+                const data = await response.json();
+
+                grid.innerHTML = data.personalities.map(p => `
+                    <div class="history-card">
+                        <h3>🤖 ${p.name}</h3>
+                        <p><strong>Model:</strong> ${p.model}</p>
+                        <p><strong>Traits:</strong> ${p.traits}</p>
+                        <p><strong>Perspective:</strong> ${p.perspective}</p>
+                        <div class="history-meta">
+                            <span>Depth: ${p.reasoning_depth}</span>
+                            <span>Truth: ${(p.truth_seeking * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                grid.innerHTML = '<div style="text-align: center; color: var(--error);">Failed to load agents</div>';
+            }
+        }
+
+        // View debate detail
+        function viewDebate(debateId) {
+            showToast('Loading', `Opening debate: ${debateId}`, '📖');
+            // Implement detailed view
+        }
+
+        // Mode selection handler
+        function updateModeOptions() {
+            const mode = document.getElementById('debateMode').value;
+            const eliminationGroup = document.getElementById('eliminationGroup');
+
+            // Show elimination toggle only for competitive debate mode
+            if (mode === 'debate') {
+                eliminationGroup.style.display = 'block';
+            } else {
+                eliminationGroup.style.display = 'none';
+                document.getElementById('elimination').checked = false;
+            }
+        }
+
+        // RAG toggle handler
+        function toggleRAGConfig() {
+            const ragEnabled = document.getElementById('ragEnabled').checked;
+            const ragConfig = document.getElementById('ragConfig');
+
+            if (ragEnabled) {
+                ragConfig.style.display = 'block';
+            } else {
+                ragConfig.style.display = 'none';
+            }
+        }
+
+        // Start debate form submission
+        document.getElementById('debateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const question = document.getElementById('question').value;
+            const title = document.getElementById('title').value;
+            const judgeModel = document.getElementById('judgeModel').value;
+            const maxIterations = parseInt(document.getElementById('maxIterations').value);
+            const debateMode = document.getElementById('debateMode').value;
+            const elimination = document.getElementById('elimination').checked;
+
+            // RAG configuration
+            const ragEnabled = document.getElementById('ragEnabled').checked;
+            const ragConfig = ragEnabled ? {
+                use_memory: document.getElementById('ragUseMemory').checked,
+                use_external_docs: document.getElementById('ragUseExternal').checked,
+                retrieval_limit: parseInt(document.getElementById('ragRetrievalLimit').value),
+                min_similarity: parseFloat(document.getElementById('ragMinSimilarity').value),
+            } : null;
+
+            const selectedAgents = Array.from(document.querySelectorAll('input[name="agent"]:checked'))
+                .map(cb => cb.value);
+
+            const hideLoading = showLoading('Starting Debate...', 'Initializing agents and system');
+
+            try {
+                const response = await fetch('/api/debates/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        question,
+                        title: title || null,
+                        judge_model: judgeModel,
+                        max_iterations: maxIterations,
+                        selected_agents: selectedAgents.length > 0 ? selectedAgents : null,
+                        mode: debateMode,
+                        elimination: elimination,
+                        rag_enabled: ragEnabled,
+                        rag_config: ragConfig,
+                    }),
+                });
+
+                const result = await response.json();
+
+                hideLoading();
+                showToast('Success!', 'Debate completed successfully', '🎉');
+
+                // Switch to live tab to show results
+                document.querySelectorAll('.tab')[1].click();
+
+                // Display results
+                const terminal = document.getElementById('terminalBody');
+                terminal.innerHTML = `
+                    <div class="terminal-line">
+                        <div class="agent-label">
+                            <span class="agent-badge">COMPLETE</span>
+                            <span>⚖️ Judge Decision</span>
+                        </div>
+                        <div style="color: #c9d1d9; margin-top: 10px; white-space: pre-wrap;">${result.judge_decision}</div>
+                    </div>
+                `;
+
+            } catch (error) {
+                hideLoading();
+                showToast('Error', 'Failed to start debate: ' + error.message, '❌');
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPersonalities();
+            loadHistory();
+            connectWebSocket();
+
+            showToast('Welcome!', 'Dashboard loaded successfully', '👋');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Council Debate Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1.1em;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: bold;
+        }
+
+        .tab:hover {
+            color: #667eea;
+            background: #f5f5f5;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Start Debate Section */
+        .debate-form {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .agent-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .agent-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .agent-checkbox:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .agent-checkbox input {
+            margin-right: 8px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Live Debate Section */
+        .debate-status {
+            padding: 20px;
+            background: #e8f5e9;
+            border-left: 5px solid #4caf50;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .debate-status.inactive {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+
+        .debate-stream {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .argument-box {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .argument-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .agent-name {
+            color: #667eea;
+        }
+
+        .timestamp {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        /* History Section */
+        .history-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 5px solid #667eea;
+        }
+
+        .history-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .history-item h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .history-meta {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        /* Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏛️ Council Debate Dashboard</h1>
+            <p class="subtitle">Advanced Multi-Agent Debate System with Real-time Analytics</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('start')">Start Debate</button>
+            <button class="tab" onclick="switchTab('live')">Live Debate</button>
+            <button class="tab" onclick="switchTab('history')">History</button>
+            <button class="tab" onclick="switchTab('analytics')">Analytics</button>
+        </div>
+
+        <!-- Start Debate Tab -->
+        <div id="start-tab" class="tab-content active">
+            <div class="debate-form">
+                <h2>Configure New Debate</h2>
+                <form id="debate-form">
+                    <div class="form-group">
+                        <label for="question">Debate Question *</label>
+                        <textarea id="question" required placeholder="Enter the debate question..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="title">Debate Title (optional)</label>
+                        <input type="text" id="title" placeholder="Give this debate a title">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Select Agents (leave empty for default)</label>
+                        <div id="agent-selector" class="agent-selector">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="judge-model">Judge Model</label>
+                        <select id="judge-model">
+                            <option value="kimi-k2:1t-cloud" selected>kimi-k2:1t-cloud (Recommended)</option>
+                            <option value="gemma3:1b">gemma3:1b</option>
+                            <option value="qwen2.5:3b">qwen2.5:3b</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max-iterations">Max Iterations</label>
+                        <input type="number" id="max-iterations" value="5" min="2" max="10">
+                    </div>
+
+                    <button type="submit" class="btn">Start Debate</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Live Debate Tab -->
+        <div id="live-tab" class="tab-content">
+            <div class="debate-status inactive">
+                <h3>Status: <span id="debate-status">No active debate</span></h3>
+                <p id="current-question">Click "Start Debate" to begin</p>
+            </div>
+
+            <div class="debate-stream" id="debate-stream">
+                <p style="text-align: center; color: #999;">Waiting for debate to start...</p>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <h2>Debate History</h2>
+            <div class="history-list" id="history-list">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <h2>Debate Analytics</h2>
+            <div class="analytics-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Debates</div>
+                    <div class="stat-value" id="total-debates">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Consensus Rate</div>
+                    <div class="stat-value" id="consensus-rate">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Iterations</div>
+                    <div class="stat-value" id="avg-iterations">0</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Agent Performance (Coming Soon)</h3>
+                <p>Win rate analysis, focus scores, and participation stats will be displayed here.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+
+        // Switch tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            // Load data for specific tabs
+            if (tabName === 'history') loadHistory();
+            if (tabName === 'analytics') loadAnalytics();
+        }
+
+        // Load personalities
+        async function loadPersonalities() {
+            try {
+                const response = await fetch('/api/personalities');
+                const data = await response.json();
+
+                const container = document.getElementById('agent-selector');
+                container.innerHTML = data.personalities.map(p => `
+                    <label class="agent-checkbox">
+                        <input type="checkbox" name="agent" value="${p.name}">
+                        <span>${p.name}</span>
+                    </label>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading personalities:', error);
+            }
+        }
+
+        // Load debate history
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/debates/history');
+                const debates = await response.json();
+
+                const container = document.getElementById('history-list');
+                if (debates.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #999;">No debates yet</p>';
+                    return;
+                }
+
+                container.innerHTML = debates.map(d => `
+                    <div class="history-item" onclick="viewDebate('${d.id}')">
+                        <h3>${d.title || 'Untitled Debate'}</h3>
+                        <p>${d.question}</p>
+                        <div class="history-meta">
+                            <span>${d.timestamp}</span>
+                            <span> • ${d.iterations} iterations</span>
+                            <span class="status-badge ${d.consensus_reached ? 'success' : 'warning'}">
+                                ${d.consensus_reached ? 'Consensus ✓' : 'No Consensus'}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // View specific debate
+        async function viewDebate(debateId) {
+            try {
+                const response = await fetch(`/api/debates/${debateId}`);
+                const debate = await response.json();
+
+                alert(`Debate Details:\n\nQuestion: ${debate.config.question}\n\nIterations: ${debate.iterations.length}\n\n(Full viewer coming soon!)`);
+            } catch (error) {
+                console.error('Error viewing debate:', error);
+            }
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/debates/history');
+                const debates = await response.json();
+
+                const totalDebates = debates.length;
+                const consensusCount = debates.filter(d => d.consensus_reached).length;
+                const consensusRate = totalDebates > 0 ? Math.round((consensusCount / totalDebates) * 100) : 0;
+                const avgIterations = totalDebates > 0 ? Math.round(debates.reduce((sum, d) => sum + d.iterations, 0) / totalDebates) : 0;
+
+                document.getElementById('total-debates').textContent = totalDebates;
+                document.getElementById('consensus-rate').textContent = consensusRate + '%';
+                document.getElementById('avg-iterations').textContent = avgIterations;
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        // Start debate form submission
+        document.getElementById('debate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const question = document.getElementById('question').value;
+            const title = document.getElementById('title').value;
+            const judgeModel = document.getElementById('judge-model').value;
+            const maxIterations = parseInt(document.getElementById('max-iterations').value);
+
+            const selectedAgents = Array.from(document.querySelectorAll('input[name="agent"]:checked'))
+                .map(cb => cb.value);
+
+            const config = {
+                question,
+                title: title || null,
+                judge_model: judgeModel,
+                max_iterations: maxIterations,
+                selected_agents: selectedAgents.length > 0 ? selectedAgents : null,
+            };
+
+            // Switch to live tab
+            switchTab('live');
+            document.querySelector('.tab[onclick*="live"]').click();
+
+            // Update status
+            document.getElementById('debate-status').textContent = 'Starting...';
+            document.getElementById('current-question').textContent = question;
+            document.querySelector('.debate-status').classList.remove('inactive');
+
+            try {
+                const response = await fetch('/api/debates/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config),
+                });
+
+                const result = await response.json();
+
+                document.getElementById('debate-status').textContent = 'Completed';
+
+                const stream = document.getElementById('debate-stream');
+                stream.innerHTML += `
+                    <div class="argument-box">
+                        <div class="argument-header">
+                            <span class="agent-name">Debate Complete!</span>
+                            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                        <p>Iterations: ${result.iterations}</p>
+                        <p>Consensus: ${result.consensus_reached ? 'Yes ✓' : 'No'}</p>
+                        <p><strong>Judge Decision:</strong> ${result.judge_decision}</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error starting debate:', error);
+                alert('Error starting debate: ' + error.message);
+            }
+        });
+
+        // Initialize
+        loadPersonalities();
+        loadHistory();
+    </script>
+</body>
+</html>

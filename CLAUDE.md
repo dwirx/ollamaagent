@@ -47,6 +47,19 @@ ollama pull kimi-k2:1t-cloud  # Model hakim (judge)
 
 ## Running the Project
 
+### Web Dashboard (NEW - v0.2.0)
+```bash
+uv run -m council.cli web
+```
+Access at: `http://localhost:8000`
+
+Features:
+- Interactive debate configuration and launch
+- Real-time debate streaming (WebSocket)
+- Analytics dashboard with stats and visualizations
+- History browser for past debates
+- Agent performance metrics
+
 ### Interactive Chatbot (Streaming)
 ```bash
 uv run main.py
@@ -213,23 +226,145 @@ Project uses Python 3.9+ with type hints. Key conventions:
 .
 ├── main.py                    # Interactive chatbot entry point
 ├── council/
-│   ├── cli.py                 # Typer CLI with debate/consciousness/interactive commands
+│   ├── cli.py                 # Typer CLI (debate/consciousness/interactive/web commands)
 │   ├── engine.py              # Core debate loop logic + focus scoring integration
 │   ├── consciousness.py       # Council of Consciousness multi-phase engine
-│   ├── chroma_memory.py       # ChromaDB vector memory system (NEW)
+│   ├── chroma_memory.py       # ChromaDB vector memory system
+│   ├── enhanced_memory.py     # Enhanced memory with tags, decay, learning (NEW v0.2)
 │   ├── memory.py              # SQLite memory system (DEPRECATED)
-│   ├── focus_scorer.py        # Focus evaluation system (NEW)
-│   ├── personalities.py       # Enhanced debate agent definitions (v2)
-│   ├── roles.py               # Enhanced council archetypes (v2)
+│   ├── focus_scorer.py        # Focus evaluation system
+│   ├── personalities.py       # Enhanced debate agent definitions
+│   ├── roles.py               # Enhanced council archetypes
 │   ├── clients.py             # Ollama client factory
 │   ├── types.py               # Pydantic models
 │   ├── storage.py             # JSON serialization
 │   └── interactive.py         # Terminal wizard UI
-├── debates/                   # Auto-generated Markdown logs
+├── web/                       # Web dashboard module (NEW v0.2)
+│   ├── server.py              # FastAPI backend with WebSocket support
+│   ├── templates/
+│   │   └── dashboard.html     # Interactive web UI
+│   └── static/                # Static assets
+├── analytics/                 # Analytics & insights module (NEW v0.2)
+│   └── debate_analytics.py    # Statistics, sentiment, graphs, win rates
+├── debates/                   # Auto-generated Markdown logs + JSON states
 ├── memory/
-│   ├── chroma_db/             # ChromaDB persistent storage (NEW)
+│   ├── enhanced_chroma/       # Enhanced ChromaDB storage (NEW v0.2)
+│   ├── chroma_db/             # Standard ChromaDB storage
 │   └── council_memory.db      # Legacy SQLite database
-└── pyproject.toml             # uv dependencies (includes chromadb)
+└── pyproject.toml             # uv dependencies (v0.2.0)
+```
+
+## Web Dashboard Architecture (v0.2.0)
+
+### Backend (`web/server.py`)
+
+FastAPI server with WebSocket support:
+
+**Key Endpoints**:
+- `GET /` - Main dashboard HTML
+- `GET /api/health` - Health check
+- `GET /api/personalities` - List available agents
+- `GET /api/debates/history` - Past debate summaries
+- `GET /api/debates/{id}` - Detailed debate data
+- `POST /api/debates/start` - Start new debate (synchronous)
+- `WS /ws/debate` - WebSocket for real-time streaming
+
+**Features**:
+- CORS middleware for cross-origin requests
+- Static file serving for assets
+- Connection manager for WebSocket broadcasts
+- Debate history browser with JSON state loading
+
+### Frontend (`web/templates/dashboard.html`)
+
+Single-page app with vanilla JavaScript:
+
+**Tabs**:
+1. **Start Debate**: Configure agents, question, judge model, iterations
+2. **Live Debate**: Real-time streaming viewer (WebSocket updates)
+3. **History**: Browse past debates with consensus status
+4. **Analytics**: Aggregate statistics and win rates
+
+**Features**:
+- Responsive grid layout
+- Color-coded agent selection
+- Real-time status updates
+- Debate completion notifications
+
+### Analytics Module (`analytics/debate_analytics.py`)
+
+Comprehensive debate analysis:
+
+**`DebateAnalyzer` capabilities**:
+- **Agent Statistics**: Win rates, argument count, focus scores, participation
+- **Voting Matrix**: Who voted for whom, weighted by ranking
+- **Argument Graph**: NetworkX graph showing argument relationships
+- **Sentiment Analysis**: Tone scoring per agent (-1.0 to 1.0)
+- **Consensus Progression**: How consensus evolved over iterations
+- **Cross-Debate Aggregation**: Combined stats from multiple debates
+
+**Usage**:
+```python
+from analytics.debate_analytics import DebateAnalyzer
+from council.types import DebateState
+
+analyzer = DebateAnalyzer(client=get_ollama_client())
+analytics = analyzer.analyze_debate(state)
+
+# Access insights
+print(analytics.agent_stats["Strategist Prime"].win_rate)
+print(analytics.sentiment_scores)
+print(analytics.voting_matrix)
+```
+
+### Enhanced Memory System (`council/enhanced_memory.py`)
+
+Advanced memory with learning capabilities:
+
+**Key Features**:
+- **Tags & Categories**: Organize memories with metadata
+- **Memory Decay**: Exponential decay based on age (configurable rate)
+- **Access Tracking**: Count and timestamp for each memory retrieval
+- **Importance Weighting**: User-defined importance scores (0.0-1.0)
+- **Cross-Debate Learning**: Extract insights from similar past debates
+- **Export/Import**: JSON backup and restore functionality
+
+**Enhanced Retrieval**:
+```python
+memory = EnhancedCouncilMemory(decay_rate=0.1)
+
+# Record with metadata
+memory.record_episode(
+    question="AI Ethics",
+    agent="Ethics Philosopher",
+    role="philosopher",
+    phase="argument",
+    content="...",
+    embedding=embed_text(client, content),
+    tags={"ethics", "policy", "governance"},
+    category="principle",
+    importance=0.9,
+)
+
+# Fetch with decay and tags
+results = memory.fetch_similar_with_decay(
+    query_embedding=query_emb,
+    limit=5,
+    tags={"ethics"},
+    min_similarity=0.6,
+)
+
+# Extract learning insights
+insights = memory.extract_learning_insights(
+    client=client,
+    topic="AI Governance",
+    min_memories=5,
+)
+```
+
+**Memory Decay Formula**:
+```
+adjusted_similarity = base_similarity × exp(-decay_rate × age_days) × (0.5 + 0.5 × importance)
 ```
 
 ## Key Implementation Details
@@ -358,7 +493,44 @@ To disable tracing: unset Langfuse env vars or switch to standard OpenAI client.
 - **Memory Persistence**: ChromaDB persists across sessions; semantic retrieval automatic
 - **Elimination Mode**: Optional competitive element where worst-performing agents are removed each iteration
 
-## Version 2 Changes Summary
+## Version 0.2.0 Changes Summary (Latest Release)
+
+### New Major Features
+
+**1. Web Dashboard** 🌐
+- **FastAPI Backend**: RESTful API + WebSocket support
+- **Interactive UI**: Single-page app with 4 tabs (Start, Live, History, Analytics)
+- **Real-time Streaming**: WebSocket-based debate viewer
+- **History Browser**: Browse and view past debates
+- **CLI Command**: `uv run -m council.cli web` (access at http://localhost:8000)
+
+**2. Debate Analytics** 📊
+- **Agent Statistics**: Win rates, participation, argument count
+- **Sentiment Analysis**: Tone scoring (-1.0 to 1.0) per agent
+- **Voting Matrix**: Weighted voting patterns visualization
+- **Argument Graphs**: NetworkX-based relationship graphs
+- **Cross-Debate Aggregation**: Combined stats from multiple debates
+- **Consensus Tracking**: Progression analysis over iterations
+
+**3. Enhanced Memory System** 🧠
+- **Tags & Categories**: Organize memories with custom metadata
+- **Memory Decay**: Exponential decay with configurable rate (default: 0.1/day)
+- **Access Tracking**: Count and timestamp for retrievals
+- **Importance Weighting**: 0.0-1.0 scores affect retrieval priority
+- **Cross-Debate Learning**: Extract insights from similar past debates
+- **Export/Import**: JSON backup and restore (with embedding regeneration)
+- **Memory Statistics**: Comprehensive stats API
+
+**New Dependencies**:
+- `fastapi>=0.104.0` - Web server framework
+- `uvicorn>=0.24.0` - ASGI server
+- `websockets>=12.0` - WebSocket support
+- `networkx>=3.2` - Graph data structures
+- `matplotlib>=3.8.0` - Plotting library
+- `pandas>=2.1.0` - Data analysis
+- `plotly>=5.18.0` - Interactive visualizations
+
+## Version 0.1.0 Changes Summary (Initial Enhanced Release)
 
 ### Major Enhancements
 

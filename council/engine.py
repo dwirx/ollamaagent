@@ -54,22 +54,38 @@ def _prompt_for_argument(
     prior_arguments: List[Argument],
     reasoning_depth: int,
     on_chunk: Callable[[str], None],
+    rag_system=None,
+    iteration: int = 0,
 ) -> str:
+    # Build base system prompt
+    base_system_prompt = (
+        f"Kamu adalah '{persona.name}'. Traits: {persona.traits}. Perspektif: {persona.perspective}.\n\n"
+        f"PENTING - Aturan Ketat Debat:\n"
+        f"1. FOKUS MUTLAK pada pertanyaan yang diberikan - jangan melebar ke topik lain\n"
+        f"2. Berikan argumen dengan kedalaman penalaran level {reasoning_depth}\n"
+        f"3. Maksimal 3-4 poin utama, setiap poin harus RELEVAN dengan pertanyaan\n"
+        f"4. Gunakan bukti konkret, data, atau contoh spesifik jika memungkinkan\n"
+        f"5. Hindari generalisasi berlebihan - tetap pada scope pertanyaan\n"
+        f"6. Nada profesional, ringkas, dan langsung ke inti\n"
+        f"7. Jika merespons argumen lain, alamat poin spesifik mereka\n\n"
+        f"Truth-seeking level: {persona.truth_seeking} - prioritaskan kebenaran objektif."
+    )
+
+    # Enhance with RAG context if available
+    if rag_system:
+        system_prompt = rag_system.enhance_prompt_with_rag(
+            base_prompt=base_system_prompt,
+            question=question,
+            agent_name=persona.name,
+            iteration=iteration,
+        )
+    else:
+        system_prompt = base_system_prompt
+
     messages = [
         {
             "role": "system",
-            "content": (
-                f"Kamu adalah '{persona.name}'. Traits: {persona.traits}. Perspektif: {persona.perspective}.\n\n"
-                f"PENTING - Aturan Ketat Debat:\n"
-                f"1. FOKUS MUTLAK pada pertanyaan yang diberikan - jangan melebar ke topik lain\n"
-                f"2. Berikan argumen dengan kedalaman penalaran level {reasoning_depth}\n"
-                f"3. Maksimal 3-4 poin utama, setiap poin harus RELEVAN dengan pertanyaan\n"
-                f"4. Gunakan bukti konkret, data, atau contoh spesifik jika memungkinkan\n"
-                f"5. Hindari generalisasi berlebihan - tetap pada scope pertanyaan\n"
-                f"6. Nada profesional, ringkas, dan langsung ke inti\n"
-                f"7. Jika merespons argumen lain, alamat poin spesifik mereka\n\n"
-                f"Truth-seeking level: {persona.truth_seeking} - prioritaskan kebenaran objektif."
-            ),
+            "content": system_prompt,
         },
         {
             "role": "user",
@@ -197,17 +213,19 @@ def _aggregate_ranks(votes: List[Vote]) -> Dict[str, int]:
     return scores
 
 
-def run_debate(config: DebateConfig, personalities: List[Personality], save_callback=None, elimination: bool = False) -> DebateState:
+def run_debate(config: DebateConfig, personalities: List[Personality], save_callback=None, elimination: bool = False, rag_system=None) -> DebateState:
     state = DebateState(config=config, personalities=personalities)
     client = get_ollama_client()
 
     # Display debate header
+    rag_status = "Enabled" if rag_system and rag_system.config.enabled else "Disabled"
     header_content = (
         f"**Question:** {config.question}\n"
         f"**Participants:** {len(personalities)} agents\n"
         f"**Consensus Threshold:** {config.consensus_threshold:.0%}\n"
         f"**Max Iterations:** {config.max_iterations}\n"
-        f"**Elimination Mode:** {'Enabled' if elimination else 'Disabled'}"
+        f"**Elimination Mode:** {'Enabled' if elimination else 'Disabled'}\n"
+        f"**RAG System:** {rag_status}"
     )
     console.print(Panel(header_content, title="🏛️  DEBATE COUNCIL", border_style="bold blue", expand=False))
     console.print()
@@ -242,6 +260,8 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
                 prior_arguments=prior_args if i > 0 else [],
                 reasoning_depth=persona.reasoning_depth,
                 on_chunk=lambda chunk, _color=color: console.print(chunk, style=_color, end=""),
+                rag_system=rag_system,
+                iteration=i,
             )
             console.print("\n")
             arguments.append(Argument(author=persona.name, content=content, iteration=i))
