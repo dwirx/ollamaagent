@@ -45,12 +45,33 @@ Options:
 - `--judge gemma3:1b`
 - `--min-it 2 --max-it 5`
 - `--threshold 0.6`
+- `--consensus {majority|supermajority|unanimity}`
+- `--eliminate`
 
 Default debaters:
 - Qwen2.5 Strategist (`qwen2.5:3b`)
 - Gemma Dreamer (`gemma3:1b`)
 - Qwen3 Engineer (`qwen3:1.7b`)
-- Qwen3-VL Observer (`qwen3-vl:2b`)
+- Gemma Observer (`gemma3:latest`)
+- Bias Auditor, Compliance Legal, Ethics Reviewer, Risk Assessor, Performance Analyst, Retrieval Agent, Planning Agent
+
+## Council of Consciousness
+
+High-context governance-style council with moderator + 5 archetypes, episodic memory (SQLite), semantic recall (embeddings), and Markdown logging.
+
+```bash
+uv run -m council.cli consciousness --question "Apakah AI dapat menjadi pemimpin moral umat manusia?"
+```
+
+Interactive wizard:
+- `uv run -m council.cli interactive`
+  - Pilih mode `council` atau `debate`
+  - Pilih agen, konsensus preset, eliminasi
+
+Artifacts:
+- Markdown log per sesi di `debates/`
+- Episodic memory SQLite di `memory/council_memory.db`
+- Memori digunakan sebagai konteks otomatis
 
 ### Notes
 - The OpenAI client is configured to `http://localhost:11434/v1`. The `OPENAI_API_KEY` is required by the SDK but not used by Ollama; we set a placeholder value.
