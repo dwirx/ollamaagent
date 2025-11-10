@@ -37,7 +37,7 @@ class IterationResult(BaseModel):
 class DebateConfig(BaseModel):
     title: Optional[str] = None
     question: str
-    judge_model: str = "gemma3:1b"
+    judge_model: str = "kimi-k2:1t-cloud"
     min_iterations: int = 2
     max_iterations: int = 5
     consensus_threshold: float = 0.6  # fraction of first-place votes

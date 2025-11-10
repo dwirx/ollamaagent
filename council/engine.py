@@ -4,9 +4,12 @@ from typing import List, Dict, Callable
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.live import Live
+from rich.layout import Layout
 from langfuse.openai import OpenAI
 from .types import Personality, DebateConfig, DebateState, Argument, Vote, IterationResult
 from .clients import get_ollama_client
+from .focus_scorer import batch_score_arguments, generate_focus_report, get_focus_warnings
 
 
 console = Console()
@@ -56,18 +59,25 @@ def _prompt_for_argument(
         {
             "role": "system",
             "content": (
-                f"Kamu adalah '{persona.name}'. Traits: {persona.traits}. Perspektif: {persona.perspective}. "
-                f"Berikan argumen dengan kedalaman penalaran {reasoning_depth}. "
-                "Gunakan nada profesional, ringkas, dan berbasis bukti bila memungkinkan."
+                f"Kamu adalah '{persona.name}'. Traits: {persona.traits}. Perspektif: {persona.perspective}.\n\n"
+                f"PENTING - Aturan Ketat Debat:\n"
+                f"1. FOKUS MUTLAK pada pertanyaan yang diberikan - jangan melebar ke topik lain\n"
+                f"2. Berikan argumen dengan kedalaman penalaran level {reasoning_depth}\n"
+                f"3. Maksimal 3-4 poin utama, setiap poin harus RELEVAN dengan pertanyaan\n"
+                f"4. Gunakan bukti konkret, data, atau contoh spesifik jika memungkinkan\n"
+                f"5. Hindari generalisasi berlebihan - tetap pada scope pertanyaan\n"
+                f"6. Nada profesional, ringkas, dan langsung ke inti\n"
+                f"7. Jika merespons argumen lain, alamat poin spesifik mereka\n\n"
+                f"Truth-seeking level: {persona.truth_seeking} - prioritaskan kebenaran objektif."
             ),
         },
         {
             "role": "user",
             "content": (
-                "Pertanyaan: " + question + "\n\n"
-                "Argumen sebelumnya (jika ada):\n" +
-                ("\n".join([f"- {a.author}: {a.content}" for a in prior_arguments]) if prior_arguments else "(belum ada)") +
-                "\n\nBerikan argumenmu yang jelas dan terstruktur."
+                "PERTANYAAN DEBAT: " + question + "\n\n"
+                "Argumen sebelumnya:\n" +
+                ("\n".join([f"- {a.author}: {a.content}" for a in prior_arguments]) if prior_arguments else "(Argumen pembuka - belum ada argumen sebelumnya)") +
+                "\n\n**Berikan argumen Anda sekarang. Tetap fokus pada pertanyaan di atas. Jangan melebar.**"
             ),
         },
     ]
@@ -139,26 +149,40 @@ def _prompt_for_judge(
 ) -> str:
     flat = []
     for it in iterations:
-        flat.append(f"Iterasi {it.iteration}:")
+        flat.append(f"\n=== Iterasi {it.iteration} ===")
         for a in it.arguments:
-            flat.append(f"- {a.author}: {a.content}")
-        flat.append("Voting:")
+            flat.append(f"[{a.author}]: {a.content}")
+        flat.append("\nVoting Iterasi Ini:")
         for v in it.votes:
-            flat.append(f"- {v.voter}: {v.ranking}")
+            flat.append(f"  {v.voter} → {' > '.join(v.ranking[:3])}")
+        if it.consensus_reached:
+            flat.append(f"  ✓ Konsensus: {it.consensus_candidate}")
     messages = [
         {
             "role": "system",
             "content": (
-                "Kamu adalah hakim yang berorientasi kebenaran, ringkas, dan adil. "
-                "Sintesis argumen, pertimbangkan voting, dan berikan keputusan final yang menimbang kekuatan bukti."
+                "Kamu adalah HAKIM DEBAT profesional dengan kualifikasi tinggi.\n\n"
+                "Tugas Anda:\n"
+                "1. Analisis OBJEKTIF semua argumen berdasarkan kekuatan logika, bukti, dan relevansi\n"
+                "2. Identifikasi argumen terkuat dan terlemah dengan alasan spesifik\n"
+                "3. Pertimbangkan hasil voting sebagai indikator persuasivitas\n"
+                "4. Berikan keputusan final yang ADIL dan TERUKUR\n"
+                "5. Fokus pada KEBENARAN faktual, bukan popularitas\n\n"
+                "Format keputusan Anda:\n"
+                "1. Ringkasan posisi utama (1-2 kalimat)\n"
+                "2. Argumen terkuat dan mengapa (spesifik)\n"
+                "3. Kelemahan dalam debat (jika ada)\n"
+                "4. Keputusan final atau sintesis\n"
+                "5. Rekomendasi tindakan (jika relevan)\n\n"
+                "Gunakan bahasa tegas, jelas, dan profesional."
             ),
         },
         {
             "role": "user",
             "content": (
-                "Pertanyaan: " + question + "\n\n"
-                "Ringkasan debat:\n" + "\n".join(flat) +
-                "\n\nBerikan keputusan final dengan alasan singkat dan poin-poin rekomendasi tindakan jika relevan."
+                f"PERTANYAAN DEBAT: {question}\n\n"
+                "=== TRANSKRIP LENGKAP DEBAT ===\n" + "\n".join(flat) +
+                "\n\n=== BERIKAN KEPUTUSAN FINAL ANDA ==="
             ),
         },
     ]
@@ -177,6 +201,17 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
     state = DebateState(config=config, personalities=personalities)
     client = get_ollama_client()
 
+    # Display debate header
+    header_content = (
+        f"**Question:** {config.question}\n"
+        f"**Participants:** {len(personalities)} agents\n"
+        f"**Consensus Threshold:** {config.consensus_threshold:.0%}\n"
+        f"**Max Iterations:** {config.max_iterations}\n"
+        f"**Elimination Mode:** {'Enabled' if elimination else 'Disabled'}"
+    )
+    console.print(Panel(header_content, title="🏛️  DEBATE COUNCIL", border_style="bold blue", expand=False))
+    console.print()
+
     # Iterations: opening arguments first
     for i in range(0, config.max_iterations):
         console.rule(f"[bold]Iterasi {i}[/bold]")
@@ -186,9 +221,20 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
             prior_args = state.iterations[-1].arguments
 
         arguments: List[Argument] = []
-        for persona in personalities:
+        console.print(f"[dim]Debaters: {', '.join([p.name for p in personalities])}[/dim]\n")
+
+        for idx, persona in enumerate(personalities, 1):
             color = _color_for(persona.name)
-            console.print(f"[bold {color}]{persona.name}[/bold {color}]: ", end="")
+
+            # Agent header with metadata
+            agent_header = (
+                f"[bold {color}]{persona.name}[/bold {color}] "
+                f"[dim]({idx}/{len(personalities)})[/dim] "
+                f"[dim italic]│ Depth:{persona.reasoning_depth} Truth:{persona.truth_seeking:.2f}[/dim italic]"
+            )
+            console.print(agent_header)
+            console.print(f"[{color}]▸[/{color}] ", end="")
+
             content = _prompt_for_argument(
                 client=client,
                 persona=persona,
@@ -197,8 +243,22 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
                 reasoning_depth=persona.reasoning_depth,
                 on_chunk=lambda chunk, _color=color: console.print(chunk, style=_color, end=""),
             )
-            console.print()
+            console.print("\n")
             arguments.append(Argument(author=persona.name, content=content, iteration=i))
+
+        # Focus scoring: evaluate how on-topic each argument is
+        console.print("\n[dim]Evaluating focus scores...[/dim]")
+        argument_pairs = [(arg.author, arg.content) for arg in arguments]
+        focus_scores = batch_score_arguments(client, config.question, argument_pairs, threshold=0.65)
+
+        # Display focus warnings if any
+        warnings = get_focus_warnings(focus_scores, threshold=0.65)
+        if warnings:
+            console.print("\n[yellow]Focus Warnings:[/yellow]")
+            for warning in warnings:
+                console.print(f"  {warning}")
+        else:
+            console.print("[green]✓ Semua argumen fokus dan relevan[/green]")
 
         votes: List[Vote] = []
         # Voting begins after first arguments are visible
@@ -250,15 +310,49 @@ def run_debate(config: DebateConfig, personalities: List[Personality], save_call
     if save_callback:
         save_callback(state)
 
-    # Render final table
-    table = Table(title="Hasil Voting Terakhir")
-    table.add_column("Pemilih")
-    table.add_column("Peringkat")
+    # Render final voting table with enhanced information
+    console.print("\n")
+    table = Table(title="📊 Hasil Voting Terakhir", border_style="cyan", show_header=True, header_style="bold cyan")
+    table.add_column("Pemilih", style="bold")
+    table.add_column("Peringkat Top 3", style="dim")
+    table.add_column("First Choice", style="bold green")
+
     for v in state.iterations[-1].votes:
         voter_color = _color_for(v.voter)
-        table.add_row(f"[{voter_color}]{v.voter}[/{voter_color}]", " > ".join(v.ranking))
+        top3 = " → ".join(v.ranking[:3]) if len(v.ranking) >= 3 else " → ".join(v.ranking)
+        first = v.ranking[0] if v.ranking else "N/A"
+        table.add_row(
+            f"[{voter_color}]{v.voter}[/{voter_color}]",
+            top3,
+            first
+        )
+
     console.print(table)
-    console.print(Panel.fit(decision, title="Keputusan Hakim"))
+    console.print()
+
+    # Show consensus status
+    last_iter = state.iterations[-1]
+    if last_iter.consensus_reached:
+        consensus_panel = Panel(
+            f"✅ **Konsensus tercapai!**\n\n"
+            f"Kandidat pemenang: **{last_iter.consensus_candidate}**\n"
+            f"Tercapai pada iterasi: {last_iter.iteration}",
+            title="Consensus Status",
+            border_style="bold green"
+        )
+        console.print(consensus_panel)
+    else:
+        consensus_panel = Panel(
+            f"⚠️  **Konsensus tidak tercapai**\n\n"
+            f"Kandidat terdepan: {last_iter.consensus_candidate or 'N/A'}\n"
+            f"Maksimal iterasi tercapai: {len(state.iterations)}",
+            title="Consensus Status",
+            border_style="bold yellow"
+        )
+        console.print(consensus_panel)
+
+    console.print()
+    console.print(Panel(decision, title="⚖️  Keputusan Hakim Final", border_style="bold white"))
     return state
 
 

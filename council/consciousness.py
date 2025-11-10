@@ -11,7 +11,7 @@ from rich.markdown import Markdown
 from langfuse.openai import OpenAI
 
 from .clients import get_ollama_client
-from .memory import CouncilMemory, embed_text, summarize_memory
+from .chroma_memory import ChromaCouncilMemory, embed_text, summarize_memory
 from .roles import CouncilRole, council_of_consciousness_roles
 
 console = Console()
@@ -49,24 +49,37 @@ def _stream_role_output(
     on_chunk: Callable[[str], None],
 ) -> str:
     system_prompt = (
-        f"Kamu adalah {role.title}. "
-        f"Arketipe: {role.archetype} "
-        f"Perspektif: {role.perspective} "
-        f"Gaya bicara: {role.signature} "
-        f"Fase: {phase}. Jawab ringkas, terstruktur, reflektif. "
-        "Gunakan bahasa Indonesia baku dengan nada sesuai peran."
+        f"Kamu adalah {role.title}.\n\n"
+        f"ARKETIPE: {role.archetype}\n\n"
+        f"PERSPEKTIF ANALITIS: {role.perspective}\n\n"
+        f"GAYA & SIGNATURE: {role.signature}\n\n"
+        f"FASE SAAT INI: {phase}\n\n"
+        f"ATURAN KETAT:\n"
+        f"1. FOKUS ABSOLUT pada pertanyaan - jangan melebar ke topik lain\n"
+        f"2. Kontribusi maksimal 4-5 poin kunci yang SANGAT relevan\n"
+        f"3. Gunakan perspektif unik dari arketipe Anda\n"
+        f"4. Respons terstruktur, evidence-based bila mungkin\n"
+        f"5. Reasoning depth level {role.reasoning_depth} - tingkat kedalaman tinggi\n"
+        f"6. Truth-seeking: {role.truth_seeking} - prioritaskan kebenaran objektif\n"
+        f"7. Engage dengan argumen sebelumnya secara spesifik (cite nama & poin)\n\n"
+        "Bahasa Indonesia baku, profesional, dan sesuai character Anda."
     )
     memory_snippet = (
-        f"Konteks memori kolektif terkini:\n{summary}\n\n"
+        f"=== KONTEKS MEMORI RELEVAN ===\n{summary}\n\n"
         if summary
         else ""
     )
-    previous_text = "\n".join(f"{msg['role'].capitalize()}: {msg['content']}" for msg in previous) if previous else ""
+    previous_text = ""
+    if previous:
+        previous_text = "=== KONTRIBUSI SEBELUMNYA ===\n"
+        for msg in previous[-5:]:  # Last 5 only for focus
+            previous_text += f"\n[{msg['role'].upper()}]: {msg['content']}\n"
+
     user_prompt = (
         f"{memory_snippet}"
-        f"Pertanyaan utama: {question}\n\n"
-        f"Riwayat singkat:\n{previous_text}\n\n"
-        "Berikan kontribusi yang memperdalam pemahaman kolektif."
+        f">>> PERTANYAAN UTAMA: {question} <<<\n\n"
+        f"{previous_text}\n"
+        f"Berikan kontribusi Anda sebagai {role.title}. Tetap ON-TOPIC dan depth maksimal."
     )
     messages = [
         {"role": "system", "content": system_prompt},
@@ -117,7 +130,7 @@ def _choose_elimination(
 
 def run_council_of_consciousness(config: CouncilConfig) -> None:
     client = get_ollama_client()
-    memory = CouncilMemory()
+    memory = ChromaCouncilMemory()
     roles = council_of_consciousness_roles()
     moderator = roles[0]
     speakers = [r for r in roles if r.key not in {"moderator", "critic"}]
@@ -136,18 +149,28 @@ def run_council_of_consciousness(config: CouncilConfig) -> None:
         _append_markdown(log_path, f"\n## {heading}\n\n")
         phase_index += 1
 
-    # Retrieve context
-    similar_records = []
+    # Retrieve context using ChromaDB's semantic search
+    similar_scored = []
     try:
         query_emb = embed_text(client, config.question)
-        similar_records = memory.fetch_similar(query_emb, limit=3)
-    except Exception:
-        similar_records = []
+        similar_scored = memory.fetch_similar(query_emb, limit=3, min_similarity=0.6)
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not fetch similar memories: {e}[/yellow]")
+        similar_scored = []
+
     summary = ""
     try:
         recent = memory.fetch_recent(limit=5)
-        summary = summarize_memory(client, config.question, recent + similar_records)
-    except Exception:
+        # Pass scored records to summarize_memory for better context
+        similar_records = [rec for _, rec in similar_scored]
+        summary = summarize_memory(
+            client,
+            config.question,
+            recent,
+            scored_records=similar_scored
+        )
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not summarize memory: {e}[/yellow]")
         summary = ""
 
     announce_phase("Pembukaan Moderator", "Pembukaan Moderator")

@@ -20,7 +20,7 @@ console = Console()
 def debate(
     question: List[str] = typer.Argument(..., help="Pertanyaan/topik untuk didebatkan"),
     title: Optional[str] = typer.Option(None, "--title", help="Judul debat (optional)"),
-    judge_model: str = typer.Option("gemma3:1b", "--judge", help="Model hakim"),
+    judge_model: str = typer.Option("kimi-k2:1t-cloud", "--judge", help="Model hakim"),
     min_iterations: int = typer.Option(2, "--min-it", help="Minimal iterasi sebelum cek konsensus"),
     max_iterations: int = typer.Option(5, "--max-it", help="Maksimal iterasi"),
     consensus: Literal["majority", "supermajority", "unanimity"] = typer.Option(

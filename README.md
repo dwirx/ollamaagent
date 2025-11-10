@@ -7,6 +7,7 @@ Trace local Ollama models with Langfuse using the OpenAI-compatible SDK. This ex
 ### Prerequisites
 - Ollama running locally (`http://localhost:11434`)
   - `ollama pull gemma3:1b`
+  - `ollama pull kimi-k2:1t-cloud` (untuk hakim)
   - `ollama pull granite-embedding:latest`
 - Python 3.9+
 - `uv` package manager (`pip install uv` or see `https://github.com/astral-sh/uv`)
@@ -42,7 +43,7 @@ uv run -m council.cli debate "Haruskah kita mengakselerasi pengembangan AGI?"
 
 Options:
 - `--title "AGI Acceleration Debate"`
-- `--judge gemma3:1b`
+- `--judge kimi-k2:1t-cloud` (default)
 - `--min-it 2 --max-it 5`
 - `--threshold 0.6`
 - `--consensus {majority|supermajority|unanimity}`
